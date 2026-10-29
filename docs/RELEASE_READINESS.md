@@ -11,7 +11,7 @@ This release adds operational and review tooling; it is not a claim that indepen
 | Metrics | CLI validates human attestations, emits per-trade and micro P/R/F1, contact-route accuracy, error list and token cost | Completed labels; self-attestation is not independent verification |
 | OpenAI adapter | Mocked schema/cost/contact tests; one-record smoke command | No key is configured here; live API call is NOT verified |
 | Digests and radius | Actual dashboard/filter/export HTTP checks, real postcode centre lookup | Public coordinate quality and commercial use conditions |
-| Scheduled job | GitHub Actions workflow, state caching, reports, fail statuses; local commands tested | Hosted Actions run and account notification settings must be checked separately |
+| Scheduled job | GitHub Actions workflow, state caching, reports, fail statuses; local commands tested | One real hosted run succeeded (links below); future scheduling and account notification delivery require monitoring |
 | Local data backup | Private ZIP, SQLite consistent backup; restored data/classification/checkpoint in a temporary test | User-controlled durable storage and routine backups |
 | macOS VS Code | Project-relative interpreter config, F5 launch profiles, instructions | Actual execution on the user's Mac; development verification runs on Linux |
 | Presentation | Seven-slide offline deck built from actual local counts; Chinese speaking notes | User should rehearse and state limitations honestly |
@@ -21,3 +21,11 @@ Local suite: **34 tests passed**. A review-interface HTTP test used a temporary 
 No LLM secret was present in the cloud runtime. The smoke script exited without a request as designed. No external email/Slack notification was sent. No environment draft was modified or environment published. Reuse/copyright/UK GDPR/PECR questions remain for the operator; public access alone is not a resale licence.
 
 Hosted workflow observations, when available, are recorded below separately from local tests.
+
+## Hosted verification completed
+
+For code commit 46e2fca, GitHub Actions Tests completed successfully (34 tests): https://github.com/chnbzhao-max/test/actions/runs/40855340738
+
+The real hosted sync was manually dispatched through the registered active workflow and completed successfully: https://github.com/chnbzhao-max/test/actions/runs/40855390854 . GitHub reported success for dependency installation, state restore step, real incremental/bootstrap pipeline, audit, slide generation, state save, artifact upload and summary. This demonstrates one complete hosted run. A successful restore step on the first run does not prove a prior cache existed; cache eviction/durability limitations still apply. Future cron delivery and notification email delivery are not claimed from this single manual dispatch.
+
+A real local backup was also created and ZIP integrity checked; it was not uploaded. macOS GUI execution, independent human labels, live LLM calls, direct council cross-check and commercial reuse review remain external prerequisites.

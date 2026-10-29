@@ -29,3 +29,7 @@ Local failures append to data/datahub/logs/alerts.log and return nonzero. Hosted
 ```
 
 The second command must remain running; closing the terminal or sleeping your Mac stops reliable scheduling. launchd/cron installation on your own Mac is not performed by this repository. Prefer GitHub Actions for a demonstration of unattended hosted operation, with the cache limitations above.
+
+## Observed hosted result
+
+A manual execution of the registered workflow completed successfully on 2026-10-29: https://github.com/chnbzhao-max/test/actions/runs/40855390854 . This verified pipeline, audit, slide generation, state-save and artifact-upload steps on a hosted runner. The Tests workflow also passed: https://github.com/chnbzhao-max/test/actions/runs/40855340738 . These are actual runs, not a claim inferred from configuration alone. Future cron runs, cache continuity and native notification delivery still need operational monitoring.
