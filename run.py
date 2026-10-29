@@ -2,7 +2,7 @@
 import argparse
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from westminster_leads.classifier import classify
@@ -29,6 +29,8 @@ def main(argv=None):
     p.add_argument('--source', choices=['portal', 'datahub'], default='portal', help='Datahub uses validated/decided dates and lacks applicant contacts')
     p.add_argument('--terms-reviewed', action='store_true', help='Confirm council terms have been reviewed for intended use; required for live scraping')
     p.add_argument('--weeks', type=positive, default=4)
+    p.add_argument('--full-refresh', action='store_true', help='Refetch historical date window; preserve existing incremental checkpoint')
+    p.add_argument('--overlap-hours', type=positive, default=2, help='Incremental safety overlap, default 2 hours')
     p.add_argument('--max-pages', type=positive, default=30)
     p.add_argument('--backend', choices=['rules', 'openai'], default='rules')
     p.add_argument('--model', default='gpt-4o-mini')
@@ -60,10 +62,28 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(), logging.FileHandler(logs/'pipeline.log')], force=True)
     report = {'date': date.today().isoformat(), 'mode': expected, 'backend': a.backend, 'new': 0, 'updated': 0, 'unchanged': 0, 'classified': 0, 'excluded': 0, 'failures': 0, 'usage': {}, 'estimated_cost_usd': 0 if a.backend == 'rules' else None}
     store = Store(directory)
+    checkpoint = None
+    scan_until = None
+    pending_checkpoint = None
+    extractor = None
     try:
+        if not a.demo and a.source == 'datahub':
+            store.acquire_sync_lock()
+            checkpoint = store.sync_state()
+        scan_until = datetime.now(timezone.utc)
         if not a.skip_scrape:
             extractor = DatahubExtractor(max_pages=a.max_pages) if a.source == 'datahub' else Extractor(directory/'cache', a.max_pages, a.refresh)
-            records = examples() if a.demo else extractor.collect(a.weeks)
+            if not a.demo and a.source == 'datahub' and checkpoint and not a.full_refresh:
+                previous_until = datetime.fromisoformat(checkpoint['completed_until'])
+                if previous_until.tzinfo is None or previous_until > scan_until:
+                    raise ValueError('Invalid sync checkpoint or local clock moved backwards')
+                records = extractor.collect_updates(previous_until-timedelta(hours=a.overlap_hours), scan_until)
+                report['sync_mode'] = 'incremental'
+            else:
+                records = examples() if a.demo else extractor.collect(a.weeks)
+                report['sync_mode'] = 'history_refresh' if a.full_refresh else 'bootstrap'
+            if not a.demo and a.source == 'datahub' and not (a.full_refresh and checkpoint):
+                pending_checkpoint = {'completed_until': scan_until.isoformat(), 'bootstrap_weeks': checkpoint.get('bootstrap_weeks', a.weeks) if checkpoint else a.weeks}
             for record in records:
                 report[store.upsert(record)] += 1
             if not a.demo and a.source == 'datahub':
@@ -86,11 +106,16 @@ def main(argv=None):
         report['digests'] = write_digests(store, directory/'digests', trades, days=a.digest_days,
                                          area=a.area, min_confidence=a.min_confidence, granted_only=not a.all_statuses)
         report['pending_classification'] = sum(c is None for _, c in store.records())
+        if pending_checkpoint is not None:
+            store.save_sync_state(pending_checkpoint)
+        if not a.demo and a.source == 'datahub':
+            report['sync_checkpoint'] = store.sync_state()
     except Exception as error:
         report['failures'] += 1
         report['error_type'] = type(error).__name__
         if not a.demo and a.source == 'datahub' and not a.skip_scrape:
-            report['extraction'] = extractor.stats
+            report['extraction'] = extractor.stats if extractor else {}
+            report['sync_checkpoint'] = store.sync_state()
         # Avoid dumping HTTP bodies, API keys, or arbitrary server output into logs.
         logging.error('Pipeline failed (%s). Check source access, terms and adapter; see HANDOVER.md.', type(error).__name__)
     finally:

@@ -79,3 +79,11 @@ Council 直抓仍返回 503。若以后恢复访问，先运行 `.venv/bin/pytho
 ```
 
 查看 `data/datahub/logs/audit.json` 的 issues、source_conflicts 和各工种数量。`issues: []` 表示这些自动检查通过，不表示分类绝对正确。`review/human_labels_template.json` 是 50 条空白人工标注模板，需真人填写才能测量准确率；请先保留一个未看预测结果的独立标注过程。详细发现和剩余限制见 `docs/QUALITY_REVIEW.md`。
+
+## 8. 明天、下周继续运行
+
+```sh
+.venv/bin/python run.py --source datahub --limit 2000 --digest-days 28
+```
+
+首次或升级后首次会初始化进度；此后自动增量，不需要 force。报告 `sync_mode: incremental` 表示按更新获取；返回 0 条表示没有需要同步的变化，不是原数据丢失。数据库必须保留。补抓历史时用 `--full-refresh --weeks 4`。详情见 `docs/INCREMENTAL_SYNC.md`。

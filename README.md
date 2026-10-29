@@ -64,6 +64,18 @@ API 仅取公开元数据，不访问 CAPTCHA、登录或 council 附件。规�
 
 使用 JSON 输出和结果校验；发送申请描述、类型、状态及是否存在联系人，不发送申请人姓名或个人地址。描述本身仍可能含个人信息，正式部署前需复核。Token 用量记录在分类结果和运行报告中。配置当前官方价格的 `LEADS_INPUT_USD_PER_MILLION`、`LEADS_OUTPUT_USD_PER_MILLION` 后才估算美元成本；未配置价格则成本为 `null`，不假装为零。示例模型的当前可用性和费用需自行核实。
 
+## 下次运行：自动增量同步
+
+首次获取历史范围；后续同一数据库仅请求更新时间变化的记录，不再每次重新拉取四周。直接运行：
+
+```sh
+.venv/bin/python run.py --source datahub --limit 2000 --digest-days 28
+```
+
+默认回看两小时防止边界遗漏；有意重叠的数据按编号去重。保存 data/datahub 数据库，不要日常使用 --force。旧申请的状态变化也会更新。首次升级需要一次历史核对建立进度。失败不推进检查点；仅来源时间变化不重复分类。
+
+补抓历史用 `--full-refresh --weeks 4`；只生成摘要用 `--skip-scrape`。完整语义、长间隔处理和限制见 `docs/INCREMENTAL_SYNC.md`。
+
 ## 继续验证数据质量
 
 ```sh
