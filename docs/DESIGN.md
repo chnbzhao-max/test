@@ -24,7 +24,7 @@ Default digests show explicit recent grants, confidence >=0.7, with original-sou
 ## Phase acceptance
 
 1. Design/taxonomy implemented; live source and terms investigation outstanding.
-2. Extractor implemented and fixture-tested; four weeks of real data outstanding.
-3. Rules and OpenAI path implemented; live API call and ~50 independent human labels outstanding.
-4. Three synthetic sample trade digests and functional local dashboard; real customer feedback outstanding.
+2. Council HTML extractor remains fixture-tested only. Alternative public London Planning Datahub adapter fetched four weeks of actual validated/decided metadata; API total and unique IDs matched. Council cross-check remains outstanding.
+3. Rules ran on 1,241 real Datahub records. OpenAI path is implemented; live LLM call and ~50 independent human labels remain outstanding.
+4. Synthetic and real Datahub trade digests plus a local dashboard are implemented; real customer feedback remains outstanding.
 5. Repeatable commands, scheduler, local alerts and handover implemented; production monitoring and real-data sign-off outstanding.

@@ -58,6 +58,8 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(select([(record, result)], trade='Roofing', area='SW1A')), 1)
         for decision in ('Decided', 'Refused', 'Not approved', 'Discharge of condition approved'):
             self.assertFalse(granted(record | {'decision': decision}))
+        for kind in ('Approval of details reserved by a condition (discharge)', 'Listed building consent', 'Lawful development: Existing use'):
+            self.assertFalse(granted(record | {'application_type': kind}))
         record['description'] = '<script>alert(1)</script>'
         record['source_url'] = 'javascript:alert(1)'
         result['summary'] = record['description']

@@ -2,7 +2,7 @@
 
 从零开发的 Python 原型，按仓库中三份 PDF 的五阶段流程实现。参考前一位 candidate 的流程，未使用其源码。
 
-**当前状态：离线端到端原型已实现；真实 Westminster 抓取尚未验证。** 官方网站在本环境返回代理 CONNECT 403。演示记录全部虚构，不是真实规划申请或可销售线索。没有声称完成四周真实数据、50 条人工标注或真实 LLM 准确率评测。
+**当前状态：London Planning Datahub 替代接口已成功获取四周真实 Westminster 元数据；council 门户直抓仍未验证。** 2026-10-29 首次运行取回 1,241 条记录（2026-10-02 至 2026-10-29，按 validated 或 decided 日期），13 页，接口精确总数与唯一编号数一致。规则分类已完成；没有真实 LLM 调用、50 条人工标注或准确率宣称。Datahub 可能滞后于 council；不能把 API 完整性等同于 council 全量一致性。
 
 ## 快速开始
 
@@ -20,7 +20,24 @@ python3 -m venv .venv
 
 默认生成 Roofing、Scaffolding、Groundworks 三份 Markdown 和 HTML 摘要：`data/demo/digests/`。HTML 为可复制的邮件样式预览，不会自动发信或联系任何人。
 
-## 真实抓取（网络和条款核查完成后）
+## 真实数据：公开 London Planning Datahub 接口（推荐先用）
+
+无需绕过 council 门户，也不需要 API key。Codespaces 终端：
+
+```sh
+git pull --ff-only origin main
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python run.py --source datahub --weeks 4 --limit 2000 --digest-days 28
+.venv/bin/python web_demo.py --datahub
+```
+
+真实记录位于 `data/datahub/`，与模拟和 council 直抓数据隔离。三个摘要位于 `data/datahub/digests/`。数据不会提交 Git，每个环境需要自己运行采集。`last_run.json` 中 extraction.complete、api_total、unique_records 用于验证本次接口分页。超过页数、结果窗口、重复记录或计数变化会失败，不声称完整。
+
+**语义差别：**接口没有可靠的收到日期，使用 validated（已验证）日期或决定日期；不会把 valid_date 冒充 date_received。它没有提供申请人/代理人姓名，联系路线为 portal。网页和摘要标注二级来源。更新时间会保留；商业再利用许可和独立准确率评测尚待核查。默认 100 条分类上限，用上面的 `--limit 2000` 处理当前四周全部结果；更多数据时按报告继续。
+
+API 仅取公开元数据，不访问 CAPTCHA、登录或 council 附件。规则评分不是实际施工需求或成交概率。详细验证见 `docs/VERIFICATION.md`。
+
+## Council 门户直抓（网络和条款核查完成后）
 
 1. 在环境设置中允许 `idoxpa.westminster.gov.uk` 和 `www.westminster.gov.uk`，保存配置；需要时发布环境。
 2. 阅读 `docs/DISCOVERY.md`，人工确认官网当前门户链接、使用条款和数据用途。代码会另行检查 robots.txt；robots 允许不等于获得商业再利用许可。

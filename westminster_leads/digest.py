@@ -6,6 +6,9 @@ from pathlib import Path
 
 def granted(record):
     # Status 'Decided' alone and discharge-of-condition decisions are not approvals.
+    application_type = record.get('application_type', '').lower()
+    if any(term in application_type for term in ('discharge', 'approval of details', 'non-material amendment', 'lawful development', 'listed building consent')) and 'full planning' not in application_type:
+        return False
     decision = record.get('decision', '').lower().strip()
     return bool(re.search(r'\b(granted|grant|approved|permit|permitted)\b', decision)) and not re.search(r'\b(refus|not |discharge|condition|withdraw|pending)', decision)
 
@@ -34,7 +37,7 @@ def select(records, trade=None, area='', min_confidence=.7, granted_only=True, s
         if not trade and not any(v >= min_confidence for v in scores.values()):
             continue
         if since:
-            day = parse_date(record.get('decision_date' if granted_only else 'date_received', ''))
+            day = parse_date(record.get('decision_date', '') if granted_only else (record.get('date_received') or record.get('date_valid', '')))
             if day is None or day < since or day > date.today():
                 continue
         selected.append((record, result))
@@ -45,6 +48,8 @@ def render(records, trade='All trades'):
     demo = any(r.get('provenance') == 'synthetic' for r, _ in records)
     title = f'Westminster — {trade}'
     note = 'SYNTHETIC DEMO — invented applications, not real sales leads.' if demo else 'Source: Westminster City Council public planning metadata. Verify decisions and contact permissions at source.'
+    if any(r.get('provenance') == 'london_datahub' for r, _ in records):
+        note += ' Data source: GLA London Planning Datahub (secondary source; may lag council updates). Applicant/agent details unavailable; verify at council portal.'
     lines = [f'# {title}', '', note, '', f'{len(records)} matching leads. Planning permission does not establish a start date or a contract.', '']
     cards = []
     for r, c in records:

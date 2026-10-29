@@ -29,22 +29,20 @@ python3 -m venv .venv
 
 在支持本机访问的环境中使用 8000 端口，选择工种、输入邮编前缀（如 SW1A）、选择批准或全部状态，点击 Filter，再点击 Export filtered Markdown 下载筛选结果。终端 Ctrl+C 停止网页。云端 onboarding 不提供可分享的 localhost 预览链接。
 
-## 4. 真实 Westminster 数据
+## 4. 真实 Westminster 数据：使用公开 Datahub 接口
 
-先完成 `docs/DISCOVERY.md` 的官网、条款和结构核查，并在环境设置开放 Westminster 域名。真实模式尚未在本环境验证，不要把演示通过当作真实抓取通过。
-
-```sh
-.venv/bin/python run.py --terms-reviewed --weeks 1
-```
-
-人工比对门户字段和数量后再运行四周：
+在 Codespaces 终端运行：
 
 ```sh
-.venv/bin/python run.py --terms-reviewed --weeks 4 --refresh
-.venv/bin/python web_demo.py --live
+git pull --ff-only origin main
+.venv/bin/python run.py --source datahub --weeks 4 --limit 2000 --digest-days 28
 ```
 
-真实数据保存在 `data/live/`；没有真实数据时不会自动塞入模拟记录。遇到错误先看 `logs/last_run.json` 和 `HANDOVER.md`。
+结果保存在 `data/datahub/`，三个工种摘要在 `data/datahub/digests/`。此数据来自 GLA London Planning Datahub，是实际申请元数据，不是模拟；但可能滞后于 council。日期范围使用“已验证或已决定”，不是“收到或已决定”。缺失申请人/代理人时不会编造联系人。
+
+查看报告 extraction 中 `complete: true`、`api_total` 和 `unique_records` 一致；`failures: 0`；再抽查来源、日期和摘要。重复运行应不产生重复记录。运行 `.venv/bin/python web_demo.py --datahub` 可选择真实数据集。网页仍绑定回环地址；Codespaces 浏览器预览取决于端口转发配置，可以先在编辑器中预览 Markdown 文件。
+
+Council 直抓仍返回 503。若以后恢复访问，先运行 `.venv/bin/python verify_portal.py`，再按 `docs/DISCOVERY.md` 核查条款及字段，最后使用 `--terms-reviewed` 的门户模式。详情见 `docs/VERIFICATION.md`。
 
 ## 5. 分类与摘要
 

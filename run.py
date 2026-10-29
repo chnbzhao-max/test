@@ -8,6 +8,7 @@ from pathlib import Path
 from westminster_leads.classifier import classify
 from westminster_leads.config import ROOT, TAXONOMY
 from westminster_leads.demo import examples
+from westminster_leads.datahub import DatahubExtractor
 from westminster_leads.digest import write_digests
 from westminster_leads.extractor import Extractor
 from westminster_leads.storage import Store
@@ -25,6 +26,7 @@ def main(argv=None):
     mode = p.add_mutually_exclusive_group()
     mode.add_argument('--demo', action='store_true', help='Invented fixtures, isolated from live data')
     mode.add_argument('--skip-scrape', action='store_true')
+    p.add_argument('--source', choices=['portal', 'datahub'], default='portal', help='Datahub uses validated/decided dates and lacks applicant contacts')
     p.add_argument('--terms-reviewed', action='store_true', help='Confirm council terms have been reviewed for intended use; required for live scraping')
     p.add_argument('--weeks', type=positive, default=4)
     p.add_argument('--max-pages', type=positive, default=30)
@@ -43,13 +45,13 @@ def main(argv=None):
     trades = a.trades.split(',')
     if any(t not in TAXONOMY for t in trades) or not 0 <= a.min_confidence <= 1:
         p.error('Invalid trade or confidence threshold')
-    if not (a.demo or a.skip_scrape or a.terms_reviewed):
+    if not (a.demo or a.skip_scrape or a.terms_reviewed or a.source == 'datahub'):
         p.error('Live scraping requires review of council terms first; see docs/DISCOVERY.md and --terms-reviewed')
-    directory = a.data_dir or ROOT / 'data' / ('demo' if a.demo else 'live')
+    directory = a.data_dir or ROOT / 'data' / ('demo' if a.demo else 'datahub' if a.source == 'datahub' else 'live')
     directory.mkdir(parents=True, exist_ok=True)
     # Never mix fixture data and production leads, even with a custom directory.
     marker = directory / 'mode.txt'
-    expected = 'synthetic' if a.demo else 'live'
+    expected = 'synthetic' if a.demo else 'london_datahub' if a.source == 'datahub' else 'live'
     if marker.exists() and marker.read_text() != expected:
         p.error('Data directory belongs to another mode; use a separate directory')
     marker.write_text(expected)
@@ -60,9 +62,12 @@ def main(argv=None):
     store = Store(directory)
     try:
         if not a.skip_scrape:
-            records = examples() if a.demo else Extractor(directory/'cache', a.max_pages, a.refresh).collect(a.weeks)
+            extractor = DatahubExtractor(max_pages=a.max_pages) if a.source == 'datahub' else Extractor(directory/'cache', a.max_pages, a.refresh)
+            records = examples() if a.demo else extractor.collect(a.weeks)
             for record in records:
                 report[store.upsert(record)] += 1
+            if not a.demo and a.source == 'datahub':
+                report['extraction'] = extractor.stats
         for record, previous in list(store.records()):
             if report['classified'] >= a.limit:
                 break
@@ -84,6 +89,8 @@ def main(argv=None):
     except Exception as error:
         report['failures'] += 1
         report['error_type'] = type(error).__name__
+        if not a.demo and a.source == 'datahub' and not a.skip_scrape:
+            report['extraction'] = extractor.stats
         # Avoid dumping HTTP bodies, API keys, or arbitrary server output into logs.
         logging.error('Pipeline failed (%s). Check source access, terms and adapter; see HANDOVER.md.', type(error).__name__)
     finally:

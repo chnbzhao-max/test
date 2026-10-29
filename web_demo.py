@@ -11,10 +11,12 @@ from westminster_leads.storage import Store
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--live', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--live', action='store_true')
+    mode.add_argument('--datahub', action='store_true')
     parser.add_argument('--port', type=int, default=8000)
     args = parser.parse_args()
-    directory = ROOT/'data'/('live' if args.live else 'demo')
+    directory = ROOT/'data'/('datahub' if args.datahub else 'live' if args.live else 'demo')
     if not (directory/'planning_leads.db').exists():
         parser.error('Run run.py first to create this dataset')
 
@@ -55,7 +57,7 @@ def main():
             self.end_headers()
             self.wfile.write(body)
 
-    print(f'Dashboard running on loopback port {args.port}; mode={"live" if args.live else "synthetic"}', flush=True)
+    print(f'Dashboard running on loopback port {args.port}; mode={"london_datahub" if args.datahub else "live" if args.live else "synthetic"}', flush=True)
     ThreadingHTTPServer(('127.0.0.1', args.port), Handler).serve_forever()
 
 

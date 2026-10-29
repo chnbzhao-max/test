@@ -32,8 +32,14 @@ Metadata may include personal data. No attachments are downloaded, and generated
 
 ## Cost and known limits
 
-Rules are local and have no API charge. OpenAI reports token counts; supply current input/output rates to estimate cost. Cost is unknown until rates are supplied. Model pricing, availability, source terms, live portal selectors, an independent 50-record benchmark and real four-week history all remain unverified. No actual customer delivery or automated outreach is implemented.
+Rules are local and have no API charge. OpenAI reports token counts; supply current input/output rates to estimate cost. Cost is unknown until rates are supplied. Model pricing/availability, commercial reuse terms, live council selectors, council cross-check and an independent 50-record benchmark remain unverified. Four weeks of real Datahub validated/decided metadata were successfully retrieved; this is a secondary source. No actual customer delivery or automated outreach is implemented.
 
 ## Scaling to another council
 
 Reuse storage, classification schema, taxonomy, evaluator, digests and scheduler. Replace source URL, form/field mapping, pagination and policy checks. Do not reuse Westminster permissions or fixtures as another council's verification.
+
+## London Planning Datahub alternative
+
+Use `run.py --source datahub --weeks 4 --limit 2000 --digest-days 28`. Data is isolated in data/datahub; reuse `--source datahub --skip-scrape` for classification/digests without fetching. Start dashboard with `web_demo.py --datahub`. No API key required. API host: planningdata.london.gov.uk; no environment config was changed for this work. Adapter uses public api-guest/applications/_search with fixed Westminster authority filter, validated/decided date windows, rate limiting, bounded retries and exact-count/duplicate checks. It cannot promise a transactionally stable source snapshot: if the index changes during retrieval, rerun and inspect count/duplicate failures. Historic withdrawals outside both date ranges require periodic wider reconciliation. Maximum from/size API window is 10,000; narrow date range rather than silently truncate.
+
+Retain source_last_updated/source_last_synced for freshness. No applicant/agent data was available in observed records; contact route is portal, not an invented agent. No attachments were fetched. Datahub availability is not a commercial reuse licence. Verify current provider terms before resale. Defaults and saved environment startup instructions may still describe the original portal mode; consult current repository README first.

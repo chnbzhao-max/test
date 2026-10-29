@@ -8,7 +8,7 @@ from .storage import markdown
 
 def excluded(record):
     text = (record.get('application_type', '') + ' ' + record['description']).lower()
-    return bool(re.search(r'\b(tree works|tree preservation|advertisement consent|environmental monitoring)\b', text)) and not re.search(r'\b(extension|construction|demolition|refurbishment)\b', text)
+    return bool(re.search(r'\b(tree works|tree preservation|advertisement consent|consent to display an advertisement|works to trees|environmental monitoring)\b', text)) and not re.search(r'\b(extension|construction|demolition|refurbishment)\b', text)
 
 
 def route(record):

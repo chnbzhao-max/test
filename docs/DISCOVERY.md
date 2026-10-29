@@ -1,10 +1,10 @@
 # Phase 1 — Westminster source discovery
 
-Status: pending live verification. Observed 2026-10-29: requests to the two hosts below returned HTTP proxy CONNECT 403. This establishes an environment access restriction, not a council refusal or missing public data.
+Status: live extraction remains unverified. On 2026-10-29 after publication, the current official guidance page returned 200 and confirmed the Idox portal link. Portal robots and advanced search returned HTTP 503 with an upstream connection-termination message from the proxy. The current environment reports unrestricted enforced HTTP policy. This observation does not establish that the council is down, that the policy blocks access, or that Codespaces has the same connectivity. No live applications were collected. See VERIFICATION.md.
 
 Candidate sources (verify from council site before production):
 
-- Council guidance: https://www.westminster.gov.uk/planning-building-and-environmental-regulations/planning-applications/view-and-comment-planning-applications
+- Council guidance: https://www.westminster.gov.uk/planning-building-control-and-environmental-regulations/planning-applications/search-and-comment-planning-applications-and-register-email-notifications
 - Idox Public Access: https://idoxpa.westminster.gov.uk/online-applications/
 - Robots: https://idoxpa.westminster.gov.uk/robots.txt
 
