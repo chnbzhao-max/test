@@ -4,12 +4,14 @@
 
 **当前状态：London Planning Datahub 替代接口已成功获取四周真实 Westminster 元数据；council 门户直抓仍未验证。** 2026-10-29 首次运行取回 1,241 条记录（2026-10-02 至 2026-10-29，按 validated 或 decided 日期），13 页，接口精确总数与唯一编号数一致。规则分类已完成；没有真实 LLM 调用、50 条人工标注或准确率宣称。Datahub 可能滞后于 council；不能把 API 完整性等同于 council 全量一致性。
 
+**macOS 本地 VS Code 用户：**先看 [Mac 启动指南](docs/VS_CODE_MAC.md)。仓库提供 F5 启动配置、离线演示稿生成器、独立人工评测界面和 GitHub 定时工作流。
+
 ## 快速开始
 
 Python 3.12：
 
 ```sh
-cd /workspace/test
+cd test  # 进入已克隆的项目目录
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python run.py --demo
@@ -109,4 +111,19 @@ API 仅取公开元数据，不访问 CAPTCHA、登录或 council 附件。规�
 
 ## 边界
 
-11 工种是因为参考材料写“10 类”但同时列出 Plumbing，实际列出 11 类；本项目保留全部。批准不意味着已开工、需要某工种或愿意被营销。仅支持区域/邮编文本筛选，没有可靠地理坐标时不伪造距离半径筛选。商业使用前需确认版权、再利用条件、UK GDPR/PECR 和联系依据。
+11 工种是因为参考材料写“10 类”但同时列出 Plumbing，实际列出 11 类；本项目保留全部。批准不意味着已开工、需要某工种或愿意被营销。支持区域/邮编文本和完整中心邮编加半径筛选；半径依赖 api.postcodes.io 与公开坐标，缺失坐标的记录不参与半径结果。商业使用前需确认版权、再利用条件、UK GDPR/PECR 和联系依据。
+
+## 演示、评测和自动化补齐
+
+```sh
+.venv/bin/python prepare_demo.py
+.venv/bin/python web_demo.py --datahub
+# 另一个终端启动独立人工评测
+.venv/bin/python review_app.py
+```
+
+演示稿：data/presentation/index.html，浏览器直接打开并可打印为 PDF。人工评测默认 8002 端口，模型预测隐藏，记录评审者、时间和源记录校验值。所有样本完成后 evaluator CLI 才接受其作为已确认人工标注；它不会替你编造标签。查看 docs/PRESENTATION_SCRIPT_ZH.md 的五分钟讲稿。
+
+GitHub Actions 的定时同步、状态缓存、报告下载及失败状态见 docs/AUTOMATION.md。可选单条付费 LLM 验证用 llm_smoke.py / VS Code 第六个 F5 配置；没有密钥就不发请求。Mock API 测试不等于真实 LLM 验证。运行情况和外部依赖见 docs/RELEASE_READINESS.md。
+
+本地备份：停止人工评测界面后运行 `.venv/bin/python backup_data.py`；输出到被 Git 忽略的 backups/，包含数据库、导出和本地评审记录，不会上传。完整恢复说明见 HANDOVER.md。

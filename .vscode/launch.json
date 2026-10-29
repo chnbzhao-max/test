@@ -1,0 +1,86 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "1. Collect / incremental sync (real data)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": [
+        "--source",
+        "datahub",
+        "--limit",
+        "10000",
+        "--digest-days",
+        "28"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "2. Prepare presentation (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/prepare_demo.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "3. Real data dashboard",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/web_demo.py",
+      "args": [
+        "--datahub"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "4. Independent human review",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/review_app.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "5. Synthetic demo (no network)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": [
+        "--demo"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "6. Live LLM smoke (one paid request)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/llm_smoke.py",
+      "args": [
+        "--reference",
+        "${input:applicationReference}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "applicationReference",
+      "type": "promptString",
+      "description": "Existing application reference from your local dataset (one paid LLM call)",
+      "default": "26/07137/FULL"
+    }
+  ]
+}

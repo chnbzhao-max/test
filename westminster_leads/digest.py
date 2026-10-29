@@ -2,6 +2,7 @@ import html
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from .geography import distance_km, valid_point
 
 
 def granted(record):
@@ -33,12 +34,16 @@ def parse_date(value):
     return None
 
 
-def select(records, trade=None, area='', min_confidence=.7, granted_only=True, since=None):
+def select(records, trade=None, area='', min_confidence=.7, granted_only=True, since=None, centre=None, radius_km=None):
+    if (centre is None) != (radius_km is None) or (centre is not None and (not valid_point(centre) or not 0 < radius_km <= 100)):
+        raise ValueError('Radius requires a valid centre and 0 < km <= 100')
     selected = []
     for record, result in records:
         if not result or result.get('excluded'):
             continue
         if granted_only and not granted(record):
+            continue
+        if centre is not None and (not valid_point(record.get('coordinates')) or distance_km(centre, record['coordinates']) > radius_km):
             continue
         if area and area.casefold() not in record.get('address', '').casefold():
             continue
@@ -72,7 +77,7 @@ def render(records, trade='All trades'):
         url = r['source_url']
         safe_url = url if url.startswith('https://idoxpa.westminster.gov.uk/') else 'https://www.westminster.gov.uk/'
         cards.append('<article><h2>' + html.escape(r['reference']) + '</h2><p>' + html.escape(r.get('address', '')) + '</p><p>' + html.escape(c['summary']) + '</p><p>' + html.escape(r.get('decision', '') + ' · ' + r.get('decision_date', '')) + '</p><p>Trades: ' + html.escape(', '.join(c['relevant_trades'])) + '</p><p>Contact: ' + html.escape(c['contact_route'] + ' — ' + c['contact_reason']) + '</p><a rel="noreferrer" href="' + html.escape(safe_url, quote=True) + '">Verify on council portal</a></article>')
-    page = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>' + html.escape(title) + '</title><style>body{font:16px system-ui;background:#f3f6f8;color:#162b39;max-width:960px;margin:40px auto;padding:20px}article{background:white;border:1px solid #cbd5df;padding:24px;margin:20px 0;border-radius:12px}a{color:#075985}</style><h1>' + html.escape(title) + '</h1><p>' + html.escape(note) + '</p><p>' + str(len(records)) + ' matching leads. Verify permission and contact permissions before use.</p>' + ''.join(cards) + '</html>'
+    page = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>' + html.escape(title) + '</title><style>body{font:16px system-ui;background:#f3f6f8;color:#162b39;max-width:960px;margin:40px auto;padding:20px}article{background:white;border:1px solid #cbd5df;padding:24px;margin:20px 0;border-radius:12px}a{color:#075985}</style><h1>' + html.escape(title) + '</h1><p>' + html.escape(note) + '</p><!--FILTERS--><p>' + str(len(records)) + ' matching leads. Rule scores are uncalibrated; verify permission and contact permissions before use.</p>' + ''.join(cards) + '</html>'
     return '\n'.join(lines), page
 
 

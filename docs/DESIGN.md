@@ -19,7 +19,7 @@ These are potential trade requirements, not facts. In particular external work d
 
 Early exclusion handles pure trees, advertisements and environmental monitoring, retaining mixed construction proposals. LLM receives minimal metadata with untrusted-data instructions and a fixed output schema checked locally. API errors are explicit. Existing classifications are reused unless content changes or force is requested. Rules and LLM runs identify their methods; do not mix their evaluation claims.
 
-Default digests show explicit recent grants, confidence >=0.7, with original-source attribution. Area is substring/postcode-prefix filtering. A radius search would need licensed coordinates and a distance function; it is not implemented. Dashboard runs on loopback only. It never sends email or performs outreach.
+Default digests show explicit recent grants, confidence >=0.7, with original-source attribution. Area is substring/postcode-prefix filtering. Optional radius search now geocodes a full centre postcode with Postcodes.io and applies haversine distance to public Datahub coordinates. Records without valid coordinates are excluded; provider terms and coordinate quality remain relevant. Dashboard runs on loopback only. It never sends email or performs outreach.
 
 ## Phase acceptance
 

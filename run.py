@@ -10,6 +10,7 @@ from westminster_leads.config import ROOT, TAXONOMY
 from westminster_leads.demo import examples
 from westminster_leads.datahub import DatahubExtractor
 from westminster_leads.digest import write_digests
+from westminster_leads.geography import postcode_centre
 from westminster_leads.extractor import Extractor
 from westminster_leads.storage import Store
 
@@ -40,11 +41,15 @@ def main(argv=None):
     p.add_argument('--data-dir', type=Path)
     p.add_argument('--trades', default='Roofing,Scaffolding,Groundworks')
     p.add_argument('--area', default='')
+    p.add_argument('--centre-postcode', help='Full UK postcode for radius centre; requires api.postcodes.io')
+    p.add_argument('--radius-km', type=float)
     p.add_argument('--min-confidence', type=float, default=.7)
     p.add_argument('--all-statuses', action='store_true')
     p.add_argument('--digest-days', type=positive, default=7)
     a = p.parse_args(argv)
     trades = a.trades.split(',')
+    if bool(a.centre_postcode) != (a.radius_km is not None) or (a.radius_km is not None and not 0 < a.radius_km <= 100):
+        p.error('Use --centre-postcode and --radius-km together, with 0 < km <= 100')
     if any(t not in TAXONOMY for t in trades) or not 0 <= a.min_confidence <= 1:
         p.error('Invalid trade or confidence threshold')
     if not (a.demo or a.skip_scrape or a.terms_reviewed or a.source == 'datahub'):
@@ -103,8 +108,10 @@ def main(argv=None):
             cost = result.get('estimated_cost_usd')
             if cost is not None:
                 report['estimated_cost_usd'] = (report['estimated_cost_usd'] or 0) + cost
+        centre = postcode_centre(a.centre_postcode) if a.centre_postcode else None
+        report['geography'] = {'centre_postcode': a.centre_postcode, 'radius_km': a.radius_km}
         report['digests'] = write_digests(store, directory/'digests', trades, days=a.digest_days,
-                                         area=a.area, min_confidence=a.min_confidence, granted_only=not a.all_statuses)
+                                         area=a.area, min_confidence=a.min_confidence, granted_only=not a.all_statuses, centre=centre, radius_km=a.radius_km)
         report['pending_classification'] = sum(c is None for _, c in store.records())
         if pending_checkpoint is not None:
             store.save_sync_state(pending_checkpoint)
