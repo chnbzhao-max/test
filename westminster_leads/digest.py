@@ -5,9 +5,20 @@ from pathlib import Path
 
 
 def granted(record):
-    # Status 'Decided' alone and discharge-of-condition decisions are not approvals.
+    # Select conservative primary-permission leads, not every legally valid consent.
+    status = record.get('status', '').lower()
+    if any(term in status for term in ('under consideration', 'pending', 'refused', 'withdrawn')):
+        return False
+    reference = record.get('reference', '').upper()
+    # Datahub sometimes assigns combined application_type to both FULL and LBC.
+    if reference.endswith(('/LBC', '/ADV', '/TCA', '/TPO', '/NMA', '/ADFULL', '/ADLBC', '/CLEUD', '/CLPUD')):
+        return False
     application_type = record.get('application_type', '').lower()
-    if any(term in application_type for term in ('discharge', 'approval of details', 'non-material amendment', 'lawful development', 'listed building consent')) and 'full planning' not in application_type:
+    if any(term in application_type for term in ('discharge', 'approval of details', 'non-material amendment', 'lawful development', 'listed building consent', 'variation of a condition', 'removal/variation')) and 'full planning' not in application_type:
+        return False
+    if 'variation' in application_type and 'condition' in application_type:
+        return False
+    if re.search(r'\bretrospective\b', record.get('description', ''), re.I):
         return False
     decision = record.get('decision', '').lower().strip()
     return bool(re.search(r'\b(granted|grant|approved|permit|permitted)\b', decision)) and not re.search(r'\b(refus|not |discharge|condition|withdraw|pending)', decision)

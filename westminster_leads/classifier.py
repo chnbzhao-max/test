@@ -30,16 +30,28 @@ def validate(result):
     return result
 
 
+def rule_trades(description):
+    # A room/location mention is not evidence of renovation to that room.
+    kitchen_text = re.sub(r'\b(?:kitchen|bathroom|toilet)\s+(?:extract(?:ion)?|vent(?:ilation)?)(?:\s+(?:system|plant|fan|duct|boxing))?', '', description, flags=re.I)
+    kitchen_text = re.sub(r'\bkitchen\s*/\s*dining\s+room\b', '', kitchen_text, flags=re.I)
+    trades = []
+    for trade, pattern in TAXONOMY.items():
+        text = kitchen_text if trade == 'Kitchens & Bathrooms' else description
+        if re.search(pattern, text, re.I):
+            trades.append(trade)
+    return trades
+
+
 def classify(record, backend='rules', model=None):
     if excluded(record):
         return {'excluded': True, 'method': 'prefilter', 'relevant_trades': [], 'confidence_scores': {}, 'usage': {}}
     if backend == 'rules':
-        trades = [t for t, pattern in TAXONOMY.items() if re.search(pattern, record['description'], re.I)]
+        trades = rule_trades(record['description'])
         contact = route(record)
         return validate({'relevant_trades': trades, 'confidence_scores': {t: .75 for t in trades},
                          'project_scale': 'unknown', 'summary': record['description'][:400],
                          'contact_route': contact, 'contact_reason': 'Published agent available' if contact == 'agent' else 'Verify the published contact route on the council portal before use',
-                         'method': 'rules', 'score_note': 'Heuristic score; not a calibrated probability', 'usage': {}})
+                         'method': 'rules', 'rules_version': '2026-10-29-context-2', 'score_note': 'Heuristic score; not a calibrated probability', 'usage': {}})
     key = os.environ.get('LEADS_LLM_API_KEY') or os.environ.get('OPENAI_API_KEY')
     if not key:
         raise RuntimeError('LLM mode requires LEADS_LLM_API_KEY (or existing OPENAI_API_KEY); use --backend rules for offline mode')

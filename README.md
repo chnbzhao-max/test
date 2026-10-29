@@ -64,6 +64,15 @@ API 仅取公开元数据，不访问 CAPTCHA、登录或 council 附件。规�
 
 使用 JSON 输出和结果校验；发送申请描述、类型、状态及是否存在联系人，不发送申请人姓名或个人地址。描述本身仍可能含个人信息，正式部署前需复核。Token 用量记录在分类结果和运行报告中。配置当前官方价格的 `LEADS_INPUT_USD_PER_MILLION`、`LEADS_OUTPUT_USD_PER_MILLION` 后才估算美元成本；未配置价格则成本为 `null`，不假装为零。示例模型的当前可用性和费用需自行核实。
 
+## 继续验证数据质量
+
+```sh
+.venv/bin/python run.py --source datahub --skip-scrape --force --limit 2000 --digest-days 28
+.venv/bin/python audit_data.py
+```
+
+完整结果和具体修复见 `docs/QUALITY_REVIEW.md`。审计生成 `data/datahub/logs/audit.json`，并创建 50 条待人工标注的空白评测模板；不会覆盖已有标注，也不会将模型输出当作正确答案。规则版本更新后须用 `--force` 刷新旧分类。当前四周 Roofing/Scaffolding/Groundworks 摘要分别为 41/54/34 条；这是保守业务筛选后的计数，不是准确率。
+
 ## 测试与评估
 
 ```sh

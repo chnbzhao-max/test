@@ -53,3 +53,7 @@ A sampled record had source_last_synced 2026-10-28; preserve per-record freshnes
 - Commercial reuse permission: the hosted public API was accessible, but the GLA guidance returned a JavaScript challenge and the Datastore dataset page returned 403. No challenge or access refusal was bypassed; current reuse terms need operator review before resale.
 
 No environment draft updates or publication occurred. Code and tests are versioned; harvested data remains ignored by Git and must be fetched in each Codespaces workspace. API metadata is a separate source, not a way around council robots rules.
+
+## Follow-up quality audit
+
+See QUALITY_REVIEW.md for ten-record/sixty-field source comparison, full SQLite/export checks, two source contradictions, corrected primary-permission eligibility and context-sensitive rule regressions. Twenty automated tests passed. A fifty-record human-review template is unlabelled; no accuracy figures are claimed.

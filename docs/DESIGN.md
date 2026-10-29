@@ -11,7 +11,7 @@ Session cookies and hidden fields are retained through a requests Session. No Es
 ## Taxonomy
 
 The canonical labels and lexical triggers are in `westminster_leads/config.py`:
-Scaffolding (roof/external/extension); Groundworks (excavation/foundation/drainage); Roofing (roof/loft/dormer); Kitchens & Bathrooms (explicit rooms); Electrical (rewire/solar/charging); Plumbing (boiler/heating/drainage); Skip Hire / Waste Removal (demolition/refurbishment); Architecture (new build/extension/conversion); Party-Wall Surveying (explicit party/boundary walls/basements/terraced); General Building / Refurbishment (general construction); Landscaping (garden/paving).
+Scaffolding (roof/external/extension); Groundworks (excavation/foundation/drainage); Roofing (roof/loft/dormer); Kitchens & Bathrooms (explicit rooms); Electrical (rewire/solar/charging); Plumbing (boiler/heating/drainage); Skip Hire / Waste Removal (demolition/refurbishment); Architecture (new build/extension/conversion); Party-Wall Surveying (explicit party/boundary walls/basements/terraced); General Building / Refurbishment (general construction); Landscaping (landscaping/paving/decking/garden work; garden location alone excluded).
 
 These are potential trade requirements, not facts. In particular external work does not always need scaffolding, and a basement does not prove a party-wall obligation. Rules intentionally label possible leads, with uncalibrated scores. A real human evaluation is required before pricing or customer delivery.
 

@@ -14,5 +14,5 @@ TAXONOMY = {
     'Architecture': r'\b(extension|new building|erection|conversion|redevelop)',
     'Party-Wall Surveying': r'\b(party.wall|boundary wall|basement|terraced)',
     'General Building / Refurbishment': r'\b(refurbish|extension|conversion|alteration|erection|redevelop)',
-    'Landscaping': r'\b(landscap|garden|paving|driveway|hardstanding)',
+    'Landscaping': r'\b(landscap|paving|driveway|hardstanding|decking|planters|garden (?:renovation|redesign|works|remodelling))',
 }

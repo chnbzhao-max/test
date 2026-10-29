@@ -14,6 +14,8 @@ def evaluate(samples, backend):
     if not samples:
         raise ValueError('Evaluation requires nonempty independent human-labelled examples')
     for sample in samples:
+        if not isinstance(sample.get('trades'), list) or 'contact_route' not in sample:
+            raise ValueError('Complete independent human labels before evaluation; trades must be an array')
         ref = sample['record']['reference']
         if ref in refs or not set(sample['trades']) <= set(TAXONOMY):
             raise ValueError('Duplicate reference or invalid labels')

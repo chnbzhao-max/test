@@ -68,3 +68,14 @@ Council 直抓仍返回 503。若以后恢复访问，先运行 `.venv/bin/pytho
 ```
 
 持续运行定时器和 cron 示例见 `HANDOVER.md`。它们尚未作为后台生产任务安装；不要同时启动多个调度器。失败保存在本地日志，不会自动发送邮件。
+
+## 7. 继续检查真实数据质量
+
+更新代码后，重算本地已有数据并执行审计：
+
+```sh
+.venv/bin/python run.py --source datahub --skip-scrape --force --limit 2000 --digest-days 28
+.venv/bin/python audit_data.py
+```
+
+查看 `data/datahub/logs/audit.json` 的 issues、source_conflicts 和各工种数量。`issues: []` 表示这些自动检查通过，不表示分类绝对正确。`review/human_labels_template.json` 是 50 条空白人工标注模板，需真人填写才能测量准确率；请先保留一个未看预测结果的独立标注过程。详细发现和剩余限制见 `docs/QUALITY_REVIEW.md`。
