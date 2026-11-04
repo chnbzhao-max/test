@@ -1,129 +1,240 @@
-# Westminster Planning Leads / Westminster 规划申请线索原型
+# Westminster Planning Leads
 
-从零开发的 Python 原型，按仓库中三份 PDF 的五阶段流程实现。参考前一位 candidate 的流程，未使用其源码。
+A Python prototype that turns public Westminster planning-application metadata into a trade-specific lead feed. It collects applications, stores structured records, classifies potential trade requirements, and produces filtered HTML and Markdown digests.
 
-**当前状态：London Planning Datahub 替代接口已成功获取四周真实 Westminster 元数据；council 门户直抓仍未验证。** 2026-10-29 首次运行取回 1,241 条记录（2026-10-02 至 2026-10-29，按 validated 或 decided 日期），13 页，接口精确总数与唯一编号数一致。规则分类已完成；没有真实 LLM 调用、50 条人工标注或准确率宣称。Datahub 可能滞后于 council；不能把 API 完整性等同于 council 全量一致性。
+The project was built from scratch against the requirements supplied with the repository. Planning permission is treated as a potential business signal, not proof that construction will begin or that a contractor is being sought.
 
-**macOS 本地 VS Code 用户：**先看 [Mac 启动指南](docs/VS_CODE_MAC.md)。仓库提供 F5 启动配置、离线演示稿生成器、独立人工评测界面和 GitHub 定时工作流。
+## Project status
 
-## 快速开始
+The end-to-end prototype has run successfully with real data from the **London Planning Datahub**, a secondary source. A verified run on **29 October 2026** retrieved 1,284 unique Westminster applications across 13 pages for the four-week validated-or-decided date window. Counts change as the source updates.
 
-Python 3.12：
+Implemented and exercised:
+
+- Real metadata collection, bounded pagination, duplicate detection, and source attribution.
+- SQLite storage with per-application JSON and Markdown exports.
+- Persistent incremental synchronisation, update detection, and failure recovery.
+- Rule-based classification, conservative approval filtering, and trade digests.
+- A local dashboard with area, postcode-prefix, and postcode-centred radius filters.
+- A blind human-review interface, evaluation tooling, local backups, and an offline presentation generator.
+- GitHub Actions tests and a successfully executed hosted synchronisation workflow.
+
+**Validation still outstanding:** an independent human-labelled classification benchmark, a live OpenAI API test, an independent comparison against the council register, commercial reuse review, and customer feedback. The direct council HTML adapter remains unverified against live Westminster pages. Automated test results are not classification-accuracy measurements.
+
+Detailed evidence and limitations: [Release readiness](docs/RELEASE_READINESS.md), [Source verification](docs/VERIFICATION.md), and [Data-quality review](docs/QUALITY_REVIEW.md).
+
+## Quick start: offline demonstration
+
+Python 3.12 is recommended. From the project directory on macOS or Linux:
 
 ```sh
-cd test  # 进入已克隆的项目目录
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python run.py --demo
 .venv/bin/python web_demo.py
 ```
 
-网页绑定本机 8000 端口，提供工种、区域/邮编前缀、批准状态、最低评分筛选和 Markdown 下载。演示和真实数据分别保存在 `data/demo/`、`data/live/`。网页仅供本机演示，无生产认证。数据目录和密钥不提交 Git。
+Open `http://127.0.0.1:8000` in your local browser. Stop the server with Ctrl+C.
 
-默认生成 Roofing、Scaffolding、Groundworks 三份 Markdown 和 HTML 摘要：`data/demo/digests/`。HTML 为可复制的邮件样式预览，不会自动发信或联系任何人。
+The demonstration uses **eight explicitly synthetic applications**, requires no API key, and makes no paid API calls. Sample Roofing, Scaffolding, and Groundworks digests are written to `data/demo/digests/` as HTML and Markdown. They are not real sales leads.
 
-## 真实数据：公开 London Planning Datahub 接口（推荐先用）
+On Windows, use `.venv\Scripts\python.exe` instead of `.venv/bin/python`. VS Code launch configurations are included for collection, the dashboard, human review, presentation preparation, and an optional single-record LLM test. The [macOS VS Code guide](docs/VS_CODE_MAC.md) is currently written in Chinese.
 
-无需绕过 council 门户，也不需要 API key。Codespaces 终端：
+## Collect real Westminster data
+
+The working adapter uses the public London Planning Datahub guest interface. No Datahub API key is required.
 
 ```sh
-git pull --ff-only origin main
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python run.py --source datahub --weeks 4 --limit 2000 --digest-days 28
+.venv/bin/python run.py --source datahub --weeks 4 --limit 10000 --digest-days 28
 .venv/bin/python web_demo.py --datahub
 ```
 
-真实记录位于 `data/datahub/`，与模拟和 council 直抓数据隔离。三个摘要位于 `data/datahub/digests/`。数据不会提交 Git，每个环境需要自己运行采集。`last_run.json` 中 extraction.complete、api_total、unique_records 用于验证本次接口分页。超过页数、结果窗口、重复记录或计数变化会失败，不声称完整。
+On the first successful run, the pipeline collects applications whose **validated date or decision date** falls within the requested history window. It does not substitute the validated date for a received date. Later ordinary runs use the saved incremental checkpoint instead of downloading the same four-week window again.
 
-**语义差别：**接口没有可靠的收到日期，使用 validated（已验证）日期或决定日期；不会把 valid_date 冒充 date_received。它没有提供申请人/代理人姓名，联系路线为 portal。网页和摘要标注二级来源。更新时间会保留；商业再利用许可和独立准确率评测尚待核查。默认 100 条分类上限，用上面的 `--limit 2000` 处理当前四周全部结果；更多数据时按报告继续。
+The command generates:
 
-API 仅取公开元数据，不访问 CAPTCHA、登录或 council 附件。规则评分不是实际施工需求或成交概率。详细验证见 `docs/VERIFICATION.md`。
-
-## Council 门户直抓（网络和条款核查完成后）
-
-1. 在环境设置中允许 `idoxpa.westminster.gov.uk` 和 `www.westminster.gov.uk`，保存配置；需要时发布环境。
-2. 阅读 `docs/DISCOVERY.md`，人工确认官网当前门户链接、使用条款和数据用途。代码会另行检查 robots.txt；robots 允许不等于获得商业再利用许可。
-3. 用小范围运行验证当前门户表单和字段，再抓四周。`--terms-reviewed` 仅表示操作者已完成核查，不会绕过门户限制。
-
-```sh
-.venv/bin/python run.py --terms-reviewed --weeks 1 --max-pages 30
-.venv/bin/python run.py --terms-reviewed --weeks 4 --refresh
-.venv/bin/python run.py --skip-scrape --trades Roofing,Scaffolding --area SW1 --min-confidence 0.7
-.venv/bin/python web_demo.py --live
+```text
+data/datahub/
+├── planning_leads.db       # Application records, classifications, and sync checkpoint
+├── raw/                    # Normalised per-application JSON
+├── markdown/               # Readable per-application Markdown
+├── digests/                # Filtered HTML and Markdown digests
+├── logs/                   # Run reports, audit results, and local failure logs
+└── review/                 # Human-review samples and separately stored predictions
 ```
 
-脚本按每周日期窗口查询 received 和 determined；通过申请编号去重，内容变化后清除旧分类。缓存有效期六小时，`--refresh` 强制刷新；间隔 1–3 秒，有限重试和最大翻页数。触发反爬挑战、解析异常或页面上限时失败并返回非零，不会报告“完整抓取成功”。只抓元数据，不下载图纸或申请附件。
+Generated data, credentials, virtual environments, and backups are excluded from Git. **A repository ZIP contains the source and documentation, not an already populated database or generated presentation.** Each local checkout, Codespace, or hosted runner needs its own dataset or a trusted restored backup.
 
-`--limit` 限制本轮分类数量（默认 100），不限制抓取；剩余数量见 `pending_classification`，下次用 `--skip-scrape` 继续。默认规则分类无 API 费用，0.75 是人工设定的规则分数，不是统计概率。默认摘要仅包含最近七天明确批准的申请；`--digest-days 28` 改为四周，`--all-statuses` 使用收到日期筛选所有状态。
+The report at `data/datahub/logs/last_run.json` records new, updated, unchanged, classified, and pending counts, together with extraction statistics and failures. An exact API total matching the unique records establishes completeness for that query against Datahub; it does not establish completeness against the council register.
 
-## LLM 分类和成本
+## Incremental synchronisation
 
-通过安全环境变量配置 `LEADS_LLM_API_KEY`，不要把值写入源码或聊天。已有 `OPENAI_API_KEY` 也可以复用。网络需允许 `api.openai.com`。未指定 LLM 模式不会调用 API；显式选择 OpenAI 后失败会报错，不会悄悄改成规则结果。
-
-```sh
-.venv/bin/python run.py --skip-scrape --backend openai --model gpt-4o-mini --limit 10 --force
-```
-
-使用 JSON 输出和结果校验；发送申请描述、类型、状态及是否存在联系人，不发送申请人姓名或个人地址。描述本身仍可能含个人信息，正式部署前需复核。Token 用量记录在分类结果和运行报告中。配置当前官方价格的 `LEADS_INPUT_USD_PER_MILLION`、`LEADS_OUTPUT_USD_PER_MILLION` 后才估算美元成本；未配置价格则成本为 `null`，不假装为零。示例模型的当前可用性和费用需自行核实。
-
-## 下次运行：自动增量同步
-
-首次获取历史范围；后续同一数据库仅请求更新时间变化的记录，不再每次重新拉取四周。直接运行：
+Use the same command on subsequent days:
 
 ```sh
-.venv/bin/python run.py --source datahub --limit 2000 --digest-days 28
+.venv/bin/python run.py --source datahub --limit 10000 --digest-days 28
 ```
 
-默认回看两小时防止边界遗漏；有意重叠的数据按编号去重。保存 data/datahub 数据库，不要日常使用 --force。旧申请的状态变化也会更新。首次升级需要一次历史核对建立进度。失败不推进检查点；仅来源时间变化不重复分类。
+The pipeline requests Westminster records whose `last_updated` or `last_synced` timestamp falls between the previous successful checkpoint, with a **two-hour safety overlap**, and the start of the current scan. This includes updates to older applications outside the initial history window.
 
-补抓历史用 `--full-refresh --weeks 4`；只生成摘要用 `--skip-scrape`。完整语义、长间隔处理和限制见 `docs/INCREMENTAL_SYNC.md`。
+- New reference: insert and classify.
+- Changed application content: update and invalidate the previous classification.
+- Source timestamps alone changed: retain the classification.
+- Unchanged content: retain the record and avoid rewriting unchanged exports.
+- Failed run: retain the previous checkpoint so the next run can retry safely.
 
-## 继续验证数据质量
+Overlap can deliberately retransmit some records. An empty incremental result still requires a lightweight API request and does not mean the local database is empty. Preserve the SQLite database to retain progress. Same-dataset Datahub commands use a process lock.
+
+To reconcile or expand historical coverage explicitly:
 
 ```sh
-.venv/bin/python run.py --source datahub --skip-scrape --force --limit 2000 --digest-days 28
-.venv/bin/python audit_data.py
+.venv/bin/python run.py --source datahub --full-refresh --weeks 8 --limit 10000 --digest-days 28
 ```
 
-完整结果和具体修复见 `docs/QUALITY_REVIEW.md`。审计生成 `data/datahub/logs/audit.json`，并创建 50 条待人工标注的空白评测模板；不会覆盖已有标注，也不会将模型输出当作正确答案。规则版本更新后须用 `--force` 刷新旧分类。当前四周 Roofing/Scaffolding/Groundworks 摘要分别为 41/54/34 条；这是保守业务筛选后的计数，不是准确率。
+An existing incremental checkpoint is retained during a history refresh. Changing `--weeks` alone does not reset established incremental progress. See [Incremental synchronisation](docs/INCREMENTAL_SYNC.md) for split-window pagination, delayed updates, recovery, and source-deletion limitations.
 
-## 测试与评估
+## Classification and lead selection
+
+The default backend is a local keyword-based classifier. The taxonomy covers 11 categories: Scaffolding, Groundworks, Roofing, Kitchens & Bathrooms, Electrical, Plumbing, Skip Hire / Waste Removal, Architecture, Party-Wall Surveying, General Building / Refurbishment, and Landscaping. All 11 are retained because the supplied materials list Plumbing in addition to the stated ten categories.
+
+A prefilter excludes selected non-construction proposals, such as pure tree works and advertisement consents. Remaining records may match multiple trades or no trades. **A record passing the prefilter is not automatically an actionable lead.**
+
+Rule scores, typically 0.75 for a matched trade, are heuristic values, not calibrated probabilities. Rule-mode summaries are derived from the proposal text, and project scale remains unknown. Broad or historical wording can still cause classification errors.
+
+Default approval selection is deliberately conservative: separate LBC references, discharges, certain amendments and condition variations, retrospective proposals, refusals, and conflicting pending statuses are excluded from primary-permission digests. This is a business filter, not a legal judgement about those consents. Original records remain stored and available to broader views. Distinct applications at the same property are not automatically merged into one project.
+
+`--limit` caps classifications per run, not records downloaded. Inspect `pending_classification` and continue with `--skip-scrape` if needed. Routine runs do not need `--force`; use it deliberately after changing classification rules or models.
+
+## Digests and geographic filters
+
+Regenerate digests from existing records without collection:
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python scheduler.py --once -- --demo
-.venv/bin/python evaluate_benchmark.py path/to/human_labels.json --backend rules
+.venv/bin/python run.py --source datahub --skip-scrape \
+  --trades Roofing,Scaffolding --area SW1 --min-confidence 0.7 --digest-days 28
 ```
 
-`tests/` 使用明确的合成 HTML 和数据，覆盖解析、翻页循环、更新和去重、分类预筛选、摘要过滤、HTML 安全、失败退出、重复运行和评估算术。这些不是实时门户验证。
+The default digest window is seven days; `--digest-days 28` selects four weeks. Granted-only digests use decision dates. All-status views use received dates where available, otherwise validated dates. `--all-statuses` relaxes approval filtering; it does not turn excluded proposals into verified leads.
 
-人工评测格式见 `docs/EVALUATION.md`。尚未有真实人工标注集，故不提供 F1 或准确率宣传数字。前一位 candidate 报告的 Essex 数字不能沿用到 Westminster。
+For a real postcode-centred radius:
 
-## 文件导航
+```sh
+.venv/bin/python run.py --source datahub --skip-scrape \
+  --centre-postcode 'SW1A 1AA' --radius-km 2 --digest-days 28
+```
 
-- `westminster_leads/extractor.py`：Idox 适配器、robots、限速、缓存、重试及翻页保护。
-- `storage.py`：SQLite、每条 JSON 与 Markdown、增量更新。
-- `classifier.py` / `config.py`：11 工种分类、预筛选、OpenAI 和规则模式。
-- `digest.py`：按工种、批准状态、区域、日期和分数选择摘要。
-- `run.py` / `web_demo.py` / `scheduler.py`：端到端入口、只读网页、定时入口。
-- `evaluate_benchmark.py`：人工标注评测。
-- `docs/DESIGN.md`、`docs/DISCOVERY.md`、`HANDOVER.md`、`FINAL_PRESENTATION.md`：设计、数据源检查、交接和演示。
+Radius filtering uses Postcodes.io for the centre and published Datahub coordinates for application locations. It measures straight-line distance, excludes records without valid coordinates, and only searches the collected Westminster dataset. It is not a driving-distance calculation or a search across neighbouring councils.
 
-## 边界
+The dashboard supports these filters and Markdown export. It binds to loopback by default and has no production user authentication. HTML digests are email-style previews: **the application does not send email or perform outreach**. Contact routing falls back to the council portal when applicant or agent information is unavailable; no contact details are invented.
 
-11 工种是因为参考材料写“10 类”但同时列出 Plumbing，实际列出 11 类；本项目保留全部。批准不意味着已开工、需要某工种或愿意被营销。支持区域/邮编文本和完整中心邮编加半径筛选；半径依赖 api.postcodes.io 与公开坐标，缺失坐标的记录不参与半径结果。商业使用前需确认版权、再利用条件、UK GDPR/PECR 和联系依据。
+## Optional OpenAI classification
 
-## 演示、评测和自动化补齐
+Set `LEADS_LLM_API_KEY` securely in the execution environment; an existing `OPENAI_API_KEY` is also supported. Never commit credentials or send them in chat. The explicit VS Code LLM smoke-test profile can load a local, Git-ignored `.env` copied from `.env.example`; normal terminal commands do not automatically load that file.
+
+A single-record live test, once a key is configured:
+
+```sh
+.venv/bin/python llm_smoke.py --reference 'YOUR-EXISTING-APPLICATION-REFERENCE'
+```
+
+This makes at most one classification API call, leaves source records unchanged, and writes a separate report. Choose an application that passes the prefilter. No key means no request. A successful single call verifies integration, not classification accuracy.
+
+To classify a limited batch explicitly:
+
+```sh
+.venv/bin/python run.py --source datahub --skip-scrape \
+  --backend openai --model gpt-4o-mini --limit 10 --force
+```
+
+Outputs are schema-validated. API failures are reported rather than silently replaced with rule results. Inputs select minimal proposal metadata rather than applicant names or personal addresses, although proposal text itself may contain personal information.
+
+Token usage is recorded. Dollar estimates require current `LEADS_INPUT_USD_PER_MILLION` and `LEADS_OUTPUT_USD_PER_MILLION` rates; otherwise cost is reported as unknown. Check current model availability and provider prices. Scheduled jobs use rules and do not spend LLM credits.
+
+## Audit, human review, and evaluation
+
+Refresh rules and prepare the default audit and presentation without downloading data:
 
 ```sh
 .venv/bin/python prepare_demo.py
-.venv/bin/python web_demo.py --datahub
-# 另一个终端启动独立人工评测
+```
+
+Or run the audit separately after regenerating matching 28-day digests:
+
+```sh
+.venv/bin/python run.py --source datahub --skip-scrape --force --limit 10000 --digest-days 28
+.venv/bin/python audit_data.py
 .venv/bin/python review_app.py
 ```
 
-演示稿：data/presentation/index.html，浏览器直接打开并可打印为 PDF。人工评测默认 8002 端口，模型预测隐藏，记录评审者、时间和源记录校验值。所有样本完成后 evaluator CLI 才接受其作为已确认人工标注；它不会替你编造标签。查看 docs/PRESENTATION_SCRIPT_ZH.md 的五分钟讲稿。
+The audit checks stored records, exports, and digest consistency, reports source contradictions, and prepares an unlabelled 50-record review template without overwriting existing reviews. The private review interface runs on port 8002, hides predictions, and records reviewer identity, time, and a source-record hash. Reviewers must choose trades or explicitly label a negative example.
 
-GitHub Actions 的定时同步、状态缓存、报告下载及失败状态见 docs/AUTOMATION.md。可选单条付费 LLM 验证用 llm_smoke.py / VS Code 第六个 F5 配置；没有密钥就不发请求。Mock API 测试不等于真实 LLM 验证。运行情况和外部依赖见 docs/RELEASE_READINESS.md。
+Once independent reviews are complete:
 
-本地备份：停止人工评测界面后运行 `.venv/bin/python backup_data.py`；输出到被 Git 忽略的 backups/，包含数据库、导出和本地评审记录，不会上传。完整恢复说明见 HANDOVER.md。
+```sh
+.venv/bin/python evaluate_benchmark.py \
+  data/datahub/review/human_labels_template.json \
+  --backend rules --output data/datahub/review/evaluation.json
+```
+
+The CLI rejects incomplete or source-mismatched attestations. It produces micro and per-trade precision, recall, F1, contact-route accuracy, error details, and usage/cost information. Attestation does not independently authenticate the reviewer or prove a held-out sample. Sampling coverage and separation from model development must be documented. No benchmark accuracy is claimed for the currently unlabelled set.
+
+## Tests
+
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+The verified release passed 34 tests locally and in GitHub Actions. Coverage includes pagination, update detection, checkpoint recovery, source validation, filtering, geographic calculations, review persistence, mocked LLM handling, and backup restoration. Synthetic fixtures and mocked API calls are identified as such; they are not live council or LLM validation.
+
+## Automation, backups, and presentation
+
+GitHub Actions provides tests and a Monday/Thursday **07:00 UTC** synchronisation workflow, also available through **Actions → Westminster scheduled sync → Run workflow**. A real hosted run completed successfully. It preserves state using an Actions cache and supplies downloadable reports, digests, and the presentation as artifacts. Cache eviction, schedule delays, and account notification settings remain operational considerations; a cache is not a permanent database backup. See [Automation](docs/AUTOMATION.md).
+
+For a private local backup, stop the review interface first:
+
+```sh
+.venv/bin/python backup_data.py
+```
+
+Backups are stored under Git-ignored `backups/`, include local review information, and are not uploaded. Restore only into a new empty directory and validate before replacing active data. See [Handover](HANDOVER.md).
+
+To prepare a presentation from existing real data:
+
+```sh
+.venv/bin/python prepare_demo.py
+```
+
+Open `data/presentation/index.html` in a browser. The seven-slide deck uses current local counts and supports printing to PDF. [Presentation notes](FINAL_PRESENTATION.md) explain the package; [Chinese speaking notes](docs/PRESENTATION_SCRIPT_ZH.md) are also included.
+
+## Direct council adapter: experimental
+
+The separate HTML adapter is implemented but not verified against live Westminster pages; observed access attempts returned HTTP 503. Before using it, confirm the current official portal, inspect terms and robots rules, check for supported feeds, and validate the real form and detail selectors. Network restrictions may require the council hosts to be allowed in your own execution environment.
+
+```sh
+.venv/bin/python verify_portal.py
+# Only after terms and live adapter validation:
+.venv/bin/python run.py --terms-reviewed --weeks 1 --max-pages 30
+```
+
+This mode uses bounded pagination, a six-hour detail cache, rate limiting, and retries. `--refresh` bypasses that cache. It does not download drawings or attachments, or bypass access challenges. `--terms-reviewed` records operator confirmation; it does not grant reuse permission. See [Discovery](docs/DISCOVERY.md).
+
+## Project structure
+
+| File or directory | Responsibility |
+| --- | --- |
+| `run.py` | End-to-end command-line pipeline |
+| `westminster_leads/datahub.py` | Working public Datahub adapter and incremental queries |
+| `westminster_leads/extractor.py` | Experimental council HTML adapter |
+| `westminster_leads/storage.py` | SQLite, exports, synchronisation state, and process lock |
+| `westminster_leads/classifier.py`, `config.py` | Prefilter, taxonomy, rules, and optional OpenAI integration |
+| `westminster_leads/digest.py`, `geography.py` | Lead selection, exports, and geographic filtering |
+| `web_demo.py` | Private read-only dashboard |
+| `audit_data.py`, `review_app.py`, `evaluate_benchmark.py` | Audit, human labels, and evaluation |
+| `backup_data.py`, `prepare_demo.py`, `build_presentation.py` | Backup and presentation tools |
+| `.github/workflows/` | Tests and scheduled synchronisation |
+| `.vscode/`, `docs/`, `HANDOVER.md` | Launch configurations, design, operation, and limitations |
+
+## Responsible use and limitations
+
+Datahub is a secondary source and may omit or delay council information. Planning approval does not establish a start date, trade requirement, or marketing permission. Applicant/agent information can be personal data; collect only what is needed and assess copyright, reuse conditions, UK GDPR, PECR, retention, and contact permissions before commercial use. Public accessibility alone is not a resale licence.
+
+The interfaces are private prototype tools, not an authenticated public service. Production use needs durable storage, appropriate access controls, monitoring, independent quality evaluation, and user feedback. See [Technical design](docs/DESIGN.md) and [Release readiness](docs/RELEASE_READINESS.md) for the remaining acceptance criteria.
