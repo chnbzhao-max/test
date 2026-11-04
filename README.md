@@ -1,173 +1,121 @@
 # Westminster Planning Leads
 
-A Python prototype that turns public Westminster planning-application metadata into a trade-specific lead feed. It collects applications, stores structured records, classifies potential trade requirements, and produces filtered HTML and Markdown digests.
+[Chinese version](README.zh-CN.md)
 
-The project was built from scratch against the requirements supplied with the repository. Planning permission is treated as a potential business signal, not proof that construction will begin or that a contractor is being sought.
+This project collects Westminster planning applications and turns them into a short feed for building trades. A roofer, for example, can filter recent approvals for relevant work in a particular area instead of searching the whole planning register.
 
-## Project status
+The program uses Python, SQLite and a local web interface. It saves the application data, assigns possible trades and produces HTML and Markdown digests. The default classifier uses keyword rules; an optional OpenAI backend is also included.
 
-The end-to-end prototype has run successfully with real data from the **London Planning Datahub**, a secondary source. A verified run on **29 October 2026** retrieved 1,284 unique Westminster applications across 13 pages for the four-week validated-or-decided date window. Counts change as the source updates.
+## Data source and progress
 
-Implemented and exercised:
+The working data source is the public **London Planning Datahub** API. The original plan was to collect directly from Westminster's Idox portal, but requests from the development environment returned HTTP 503. The HTML adapter is still in the repository for further work.
 
-- Real metadata collection, bounded pagination, duplicate detection, and source attribution.
-- SQLite storage with per-application JSON and Markdown exports.
-- Persistent incremental synchronisation, update detection, and failure recovery.
-- Rule-based classification, conservative approval filtering, and trade digests.
-- A local dashboard with area, postcode-prefix, and postcode-centred radius filters.
-- A blind human-review interface, evaluation tooling, local backups, and an offline presentation generator.
-- GitHub Actions tests and a successfully executed hosted synchronisation workflow.
+A run on **29 October 2026** collected **1,284 unique applications across 13 pages**, covering applications validated or decided between 2 and 29 October. The API total matched the number of unique records saved. These are historical test results; a new run may return different counts.
 
-**Validation still outstanding:** an independent human-labelled classification benchmark, a live OpenAI API test, an independent comparison against the council register, commercial reuse review, and customer feedback. The direct council HTML adapter remains unverified against live Westminster pages. Automated test results are not classification-accuracy measurements.
+The Datahub pipeline, incremental updates, local dashboard and digest generation have been tested with real records. The release also passed 34 automated tests, and a GitHub Actions sync completed successfully. Details are in [Verification](docs/VERIFICATION.md) and [Release readiness](docs/RELEASE_READINESS.md).
 
-Detailed evidence and limitations: [Release readiness](docs/RELEASE_READINESS.md), [Source verification](docs/VERIFICATION.md), and [Data-quality review](docs/QUALITY_REVIEW.md).
+## Running the project
 
-## Quick start: offline demonstration
-
-Python 3.12 is recommended. From the project directory on macOS or Linux:
+Python 3.12 is recommended. In the project folder on macOS or Linux:
 
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python run.py --demo
-.venv/bin/python web_demo.py
 ```
 
-Open `http://127.0.0.1:8000` in your local browser. Stop the server with Ctrl+C.
-
-The demonstration uses **eight explicitly synthetic applications**, requires no API key, and makes no paid API calls. Sample Roofing, Scaffolding, and Groundworks digests are written to `data/demo/digests/` as HTML and Markdown. They are not real sales leads.
-
-On Windows, use `.venv\Scripts\python.exe` instead of `.venv/bin/python`. VS Code launch configurations are included for collection, the dashboard, human review, presentation preparation, and an optional single-record LLM test. The [macOS VS Code guide](docs/VS_CODE_MAC.md) is currently written in Chinese.
-
-## Collect real Westminster data
-
-The working adapter uses the public London Planning Datahub guest interface. No Datahub API key is required.
+Collect four weeks of real data and start the dashboard:
 
 ```sh
 .venv/bin/python run.py --source datahub --weeks 4 --limit 10000 --digest-days 28
 .venv/bin/python web_demo.py --datahub
 ```
 
-On the first successful run, the pipeline collects applications whose **validated date or decision date** falls within the requested history window. It does not substitute the validated date for a received date. Later ordinary runs use the saved incremental checkpoint instead of downloading the same four-week window again.
+Open `http://127.0.0.1:8000` in a browser. Press Ctrl+C in the terminal to stop the server. No Datahub API key is required.
 
-The command generates:
+For a quick offline check, use the eight synthetic examples:
 
-```text
-data/datahub/
-├── planning_leads.db       # Application records, classifications, and sync checkpoint
-├── raw/                    # Normalised per-application JSON
-├── markdown/               # Readable per-application Markdown
-├── digests/                # Filtered HTML and Markdown digests
-├── logs/                   # Run reports, audit results, and local failure logs
-└── review/                 # Human-review samples and separately stored predictions
+```sh
+.venv/bin/python run.py --demo
+.venv/bin/python web_demo.py
 ```
 
-Generated data, credentials, virtual environments, and backups are excluded from Git. **A repository ZIP contains the source and documentation, not an already populated database or generated presentation.** Each local checkout, Codespace, or hosted runner needs its own dataset or a trusted restored backup.
+Demo records are marked as synthetic and stored separately. On Windows, replace `.venv/bin/python` with `.venv\Scripts\python.exe`. VS Code F5 configurations are provided; the [macOS setup guide](docs/VS_CODE_MAC.md) is in Chinese.
 
-The report at `data/datahub/logs/last_run.json` records new, updated, unchanged, classified, and pending counts, together with extraction statistics and failures. An exact API total matching the unique records establishes completeness for that query against Datahub; it does not establish completeness against the council register.
+## Storage and repeat runs
 
-## Incremental synchronisation
+Real Datahub records are stored under `data/datahub/`:
 
-Use the same command on subsequent days:
+```text
+planning_leads.db    Application records, classifications and sync progress
+raw/                Normalised JSON exports
+markdown/           One readable Markdown file per application
+digests/            HTML and Markdown lead digests
+logs/               Run reports and data audits
+review/             Human-review samples and labels
+```
+
+The application reference is the database key. New references are inserted; changes to an existing application update its record. A content change triggers reclassification, while a change to source timestamps alone preserves the previous classification.
+
+The first successful run saves a sync checkpoint. Later runs query `last_updated` and `last_synced` from that checkpoint, with a two-hour overlap. This also picks up changes to older applications outside the original four-week window. Failed runs keep the previous checkpoint so they can be retried.
+
+Use the same command for normal updates:
 
 ```sh
 .venv/bin/python run.py --source datahub --limit 10000 --digest-days 28
 ```
 
-The pipeline requests Westminster records whose `last_updated` or `last_synced` timestamp falls between the previous successful checkpoint, with a **two-hour safety overlap**, and the start of the current scan. This includes updates to older applications outside the initial history window.
+Keep the local database to retain progress. To expand or reconcile the historical window, add `--full-refresh --weeks 8`; changing `--weeks` alone does not reset an existing checkpoint. See [Incremental sync](docs/INCREMENTAL_SYNC.md) for the query and recovery behaviour.
 
-- New reference: insert and classify.
-- Changed application content: update and invalidate the previous classification.
-- Source timestamps alone changed: retain the classification.
-- Unchanged content: retain the record and avoid rewriting unchanged exports.
-- Failed run: retain the previous checkpoint so the next run can retry safely.
+Generated data, `.env`, virtual environments and backups are ignored by Git. A downloaded repository ZIP includes the code and documentation; collect data or restore a trusted backup to populate a new machine.
 
-Overlap can deliberately retransmit some records. An empty incremental result still requires a lightweight API request and does not mean the local database is empty. Preserve the SQLite database to retain progress. Same-dataset Datahub commands use a process lock.
+## Classification and digests
 
-To reconcile or expand historical coverage explicitly:
+The rules cover 11 trades, including Roofing, Scaffolding, Groundworks, Plumbing and Landscaping. The full taxonomy is in `westminster_leads/config.py`. A prefilter removes selected non-construction applications, such as pure tree works and advertisement consents.
 
-```sh
-.venv/bin/python run.py --source datahub --full-refresh --weeks 8 --limit 10000 --digest-days 28
-```
+Applications can match several trades. The rule score of 0.75 is a fixed heuristic, not a measured probability of being correct. Rule-mode summaries come from the proposal text, and project scale is left unknown.
 
-An existing incremental checkpoint is retained during a history refresh. Changing `--weeks` alone does not reset established incremental progress. See [Incremental synchronisation](docs/INCREMENTAL_SYNC.md) for split-window pagination, delayed updates, recovery, and source-deletion limitations.
+The default approval digest excludes separate listed-building consents, discharges, certain amendments and condition variations, retrospective proposals, refusals and conflicting pending statuses. This is a conservative lead-selection policy. The original records remain in the database, and different references at the same property are not automatically merged into one project.
 
-## Classification and lead selection
-
-The default backend is a local keyword-based classifier. The taxonomy covers 11 categories: Scaffolding, Groundworks, Roofing, Kitchens & Bathrooms, Electrical, Plumbing, Skip Hire / Waste Removal, Architecture, Party-Wall Surveying, General Building / Refurbishment, and Landscaping. All 11 are retained because the supplied materials list Plumbing in addition to the stated ten categories.
-
-A prefilter excludes selected non-construction proposals, such as pure tree works and advertisement consents. Remaining records may match multiple trades or no trades. **A record passing the prefilter is not automatically an actionable lead.**
-
-Rule scores, typically 0.75 for a matched trade, are heuristic values, not calibrated probabilities. Rule-mode summaries are derived from the proposal text, and project scale remains unknown. Broad or historical wording can still cause classification errors.
-
-Default approval selection is deliberately conservative: separate LBC references, discharges, certain amendments and condition variations, retrospective proposals, refusals, and conflicting pending statuses are excluded from primary-permission digests. This is a business filter, not a legal judgement about those consents. Original records remain stored and available to broader views. Distinct applications at the same property are not automatically merged into one project.
-
-`--limit` caps classifications per run, not records downloaded. Inspect `pending_classification` and continue with `--skip-scrape` if needed. Routine runs do not need `--force`; use it deliberately after changing classification rules or models.
-
-## Digests and geographic filters
-
-Regenerate digests from existing records without collection:
+Generate an area-specific digest from existing data:
 
 ```sh
 .venv/bin/python run.py --source datahub --skip-scrape \
-  --trades Roofing,Scaffolding --area SW1 --min-confidence 0.7 --digest-days 28
+  --trades Roofing,Scaffolding --area SW1 --digest-days 28
 ```
 
-The default digest window is seven days; `--digest-days 28` selects four weeks. Granted-only digests use decision dates. All-status views use received dates where available, otherwise validated dates. `--all-statuses` relaxes approval filtering; it does not turn excluded proposals into verified leads.
-
-For a real postcode-centred radius:
+Or filter by a full centre postcode and a radius in kilometres:
 
 ```sh
 .venv/bin/python run.py --source datahub --skip-scrape \
   --centre-postcode 'SW1A 1AA' --radius-km 2 --digest-days 28
 ```
 
-Radius filtering uses Postcodes.io for the centre and published Datahub coordinates for application locations. It measures straight-line distance, excludes records without valid coordinates, and only searches the collected Westminster dataset. It is not a driving-distance calculation or a search across neighbouring councils.
+Radius filtering uses Postcodes.io and the coordinates supplied by Datahub. Records without valid coordinates are excluded. The dashboard provides the same filters and a Markdown export.
 
-The dashboard supports these filters and Markdown export. It binds to loopback by default and has no production user authentication. HTML digests are email-style previews: **the application does not send email or perform outreach**. Contact routing falls back to the council portal when applicant or agent information is unavailable; no contact details are invented.
+A few useful options:
 
-## Optional OpenAI classification
+| Option | Purpose |
+| --- | --- |
+| `--limit` | Maximum classifications per run, not maximum records downloaded |
+| `--skip-scrape` | Work with the data already stored locally |
+| `--force` | Reclassify existing records after a rule or model change |
+| `--digest-days` | Digest date window; the default is seven days |
+| `--all-statuses` | Relax the approval filter for broader inspection |
 
-Set `LEADS_LLM_API_KEY` securely in the execution environment; an existing `OPENAI_API_KEY` is also supported. Never commit credentials or send them in chat. The explicit VS Code LLM smoke-test profile can load a local, Git-ignored `.env` copied from `.env.example`; normal terminal commands do not automatically load that file.
+The observed Datahub records did not provide applicant or agent contact details, so the contact route points back to the council portal. The program generates digest files; it does not send emails or contact applicants.
 
-A single-record live test, once a key is configured:
+## Review and evaluation
 
-```sh
-.venv/bin/python llm_smoke.py --reference 'YOUR-EXISTING-APPLICATION-REFERENCE'
-```
-
-This makes at most one classification API call, leaves source records unchanged, and writes a separate report. Choose an application that passes the prefilter. No key means no request. A successful single call verifies integration, not classification accuracy.
-
-To classify a limited batch explicitly:
-
-```sh
-.venv/bin/python run.py --source datahub --skip-scrape \
-  --backend openai --model gpt-4o-mini --limit 10 --force
-```
-
-Outputs are schema-validated. API failures are reported rather than silently replaced with rule results. Inputs select minimal proposal metadata rather than applicant names or personal addresses, although proposal text itself may contain personal information.
-
-Token usage is recorded. Dollar estimates require current `LEADS_INPUT_USD_PER_MILLION` and `LEADS_OUTPUT_USD_PER_MILLION` rates; otherwise cost is reported as unknown. Check current model availability and provider prices. Scheduled jobs use rules and do not spend LLM credits.
-
-## Audit, human review, and evaluation
-
-Refresh rules and prepare the default audit and presentation without downloading data:
+Run the audit and open the independent-review interface:
 
 ```sh
 .venv/bin/python prepare_demo.py
-```
-
-Or run the audit separately after regenerating matching 28-day digests:
-
-```sh
-.venv/bin/python run.py --source datahub --skip-scrape --force --limit 10000 --digest-days 28
-.venv/bin/python audit_data.py
 .venv/bin/python review_app.py
 ```
 
-The audit checks stored records, exports, and digest consistency, reports source contradictions, and prepares an unlabelled 50-record review template without overwriting existing reviews. The private review interface runs on port 8002, hides predictions, and records reviewer identity, time, and a source-record hash. Reviewers must choose trades or explicitly label a negative example.
+The audit checks the database against its JSON and Markdown exports, flags source inconsistencies and prepares 50 unlabelled review samples. The review page runs on port 8002. It hides model predictions and records the reviewer's labels, name, time and source-record hash. Existing reviews are preserved.
 
-Once independent reviews are complete:
+After the reviews are complete:
 
 ```sh
 .venv/bin/python evaluate_benchmark.py \
@@ -175,66 +123,61 @@ Once independent reviews are complete:
   --backend rules --output data/datahub/review/evaluation.json
 ```
 
-The CLI rejects incomplete or source-mismatched attestations. It produces micro and per-trade precision, recall, F1, contact-route accuracy, error details, and usage/cost information. Attestation does not independently authenticate the reviewer or prove a held-out sample. Sampling coverage and separation from model development must be documented. No benchmark accuracy is claimed for the currently unlabelled set.
+The report includes precision, recall and F1 by trade, micro scores, contact-route accuracy and individual errors. The CLI rejects unfinished or source-mismatched reviews. Review independence and the choice of held-out samples still need to be documented by the reviewer. No classification-accuracy result is claimed for the currently unlabelled set.
 
-## Tests
+To run the automated tests:
 
 ```sh
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The verified release passed 34 tests locally and in GitHub Actions. Coverage includes pagination, update detection, checkpoint recovery, source validation, filtering, geographic calculations, review persistence, mocked LLM handling, and backup restoration. Synthetic fixtures and mocked API calls are identified as such; they are not live council or LLM validation.
+Tests cover collection, pagination, duplicate handling, sync recovery, lead filtering, geography, review saves, mocked LLM responses and backup restoration. [Quality review](docs/QUALITY_REVIEW.md) describes the issues found in real records and the resulting fixes.
 
-## Automation, backups, and presentation
+## Optional LLM backend
 
-GitHub Actions provides tests and a Monday/Thursday **07:00 UTC** synchronisation workflow, also available through **Actions → Westminster scheduled sync → Run workflow**. A real hosted run completed successfully. It preserves state using an Actions cache and supplies downloadable reports, digests, and the presentation as artifacts. Cache eviction, schedule delays, and account notification settings remain operational considerations; a cache is not a permanent database backup. See [Automation](docs/AUTOMATION.md).
+OpenAI classification requires `LEADS_LLM_API_KEY` or an existing `OPENAI_API_KEY` in the execution environment. The VS Code single-record test configuration can load a local `.env` copied from `.env.example`. Ordinary terminal commands do not load `.env` automatically.
 
-For a private local backup, stop the review interface first:
+Once a key is configured, a single-record test is available:
+
+```sh
+.venv/bin/python llm_smoke.py --reference 'YOUR-EXISTING-APPLICATION-REFERENCE'
+```
+
+This leaves the source dataset unchanged. Batch classification is available through `run.py --source datahub --skip-scrape --backend openai --limit 10 --force`. API errors are reported rather than replaced with rule output.
+
+Token usage is recorded. Cost estimates need current `LEADS_INPUT_USD_PER_MILLION` and `LEADS_OUTPUT_USD_PER_MILLION` rates; otherwise cost remains unknown. Keep credentials out of Git. A live OpenAI call has not yet been verified for this project.
+
+## Presentation, backups and scheduling
+
+`prepare_demo.py` reclassifies stored records with the current rules, runs the audit and builds a seven-slide presentation at `data/presentation/index.html`. Open it in a browser or print it to PDF. The preparation command uses existing data and makes no paid API calls.
+
+For a private local backup, stop the review interface and run:
 
 ```sh
 .venv/bin/python backup_data.py
 ```
 
-Backups are stored under Git-ignored `backups/`, include local review information, and are not uploaded. Restore only into a new empty directory and validate before replacing active data. See [Handover](HANDOVER.md).
+Backups go to the Git-ignored `backups/` folder. Restore into a new empty directory and check the result before replacing active data. [HANDOVER.md](HANDOVER.md) covers recovery.
 
-To prepare a presentation from existing real data:
+GitHub Actions runs tests and provides a Monday/Thursday 07:00 UTC sync schedule. The sync workflow can also be started from the Actions tab. It saves state in an Actions cache and uploads reports, digests and the presentation. Cache eviction and notification settings need monitoring; the cache is not a permanent backup. See [Automation](docs/AUTOMATION.md).
 
-```sh
-.venv/bin/python prepare_demo.py
-```
+## Code layout
 
-Open `data/presentation/index.html` in a browser. The seven-slide deck uses current local counts and supports printing to PDF. [Presentation notes](FINAL_PRESENTATION.md) explain the package; [Chinese speaking notes](docs/PRESENTATION_SCRIPT_ZH.md) are also included.
-
-## Direct council adapter: experimental
-
-The separate HTML adapter is implemented but not verified against live Westminster pages; observed access attempts returned HTTP 503. Before using it, confirm the current official portal, inspect terms and robots rules, check for supported feeds, and validate the real form and detail selectors. Network restrictions may require the council hosts to be allowed in your own execution environment.
-
-```sh
-.venv/bin/python verify_portal.py
-# Only after terms and live adapter validation:
-.venv/bin/python run.py --terms-reviewed --weeks 1 --max-pages 30
-```
-
-This mode uses bounded pagination, a six-hour detail cache, rate limiting, and retries. `--refresh` bypasses that cache. It does not download drawings or attachments, or bypass access challenges. `--terms-reviewed` records operator confirmation; it does not grant reuse permission. See [Discovery](docs/DISCOVERY.md).
-
-## Project structure
-
-| File or directory | Responsibility |
+| File | Role |
 | --- | --- |
-| `run.py` | End-to-end command-line pipeline |
-| `westminster_leads/datahub.py` | Working public Datahub adapter and incremental queries |
+| `run.py` | Pipeline entry point |
+| `westminster_leads/datahub.py` | Datahub collection and incremental queries |
+| `westminster_leads/storage.py` | SQLite, exports and sync state |
+| `westminster_leads/classifier.py`, `config.py` | Prefilter, trade rules and OpenAI support |
+| `westminster_leads/digest.py`, `geography.py` | Lead selection and geographic filters |
+| `web_demo.py` | Local dashboard |
+| `audit_data.py`, `review_app.py`, `evaluate_benchmark.py` | Data checks and classification evaluation |
 | `westminster_leads/extractor.py` | Experimental council HTML adapter |
-| `westminster_leads/storage.py` | SQLite, exports, synchronisation state, and process lock |
-| `westminster_leads/classifier.py`, `config.py` | Prefilter, taxonomy, rules, and optional OpenAI integration |
-| `westminster_leads/digest.py`, `geography.py` | Lead selection, exports, and geographic filtering |
-| `web_demo.py` | Private read-only dashboard |
-| `audit_data.py`, `review_app.py`, `evaluate_benchmark.py` | Audit, human labels, and evaluation |
-| `backup_data.py`, `prepare_demo.py`, `build_presentation.py` | Backup and presentation tools |
-| `.github/workflows/` | Tests and scheduled synchronisation |
-| `.vscode/`, `docs/`, `HANDOVER.md` | Launch configurations, design, operation, and limitations |
 
-## Responsible use and limitations
+## Remaining work
 
-Datahub is a secondary source and may omit or delay council information. Planning approval does not establish a start date, trade requirement, or marketing permission. Applicant/agent information can be personal data; collect only what is needed and assess copyright, reuse conditions, UK GDPR, PECR, retention, and contact permissions before commercial use. Public accessibility alone is not a resale licence.
+The Datahub feed can lag behind the council register. A direct council comparison is still needed; the HTML adapter has only fixture-based validation. The independent human benchmark, live OpenAI test and feedback from tradespeople are also outstanding.
 
-The interfaces are private prototype tools, not an authenticated public service. Production use needs durable storage, appropriate access controls, monitoring, independent quality evaluation, and user feedback. See [Technical design](docs/DESIGN.md) and [Release readiness](docs/RELEASE_READINESS.md) for the remaining acceptance criteria.
+Planning approval does not establish a construction start date or permission to market to an applicant. Commercial use requires a review of data reuse conditions, copyright, UK GDPR and PECR. The local interfaces have no production authentication; wider deployment also needs durable storage and monitoring.
+
+Further design and operation notes are in [Technical design](docs/DESIGN.md) and [Release readiness](docs/RELEASE_READINESS.md).
