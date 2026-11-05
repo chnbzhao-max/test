@@ -26,6 +26,8 @@ def granted(record):
 
 
 def parse_date(value):
+    if not isinstance(value, str):
+        return None
     for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%a %d %b %Y', '%d %b %Y', '%d %B %Y'):
         try:
             return datetime.strptime(value, fmt).date()
@@ -34,9 +36,11 @@ def parse_date(value):
     return None
 
 
-def select(records, trade=None, area='', min_confidence=.7, granted_only=True, since=None, centre=None, radius_km=None):
+def select(records, trade=None, area='', min_confidence=.7, granted_only=True, since=None, centre=None, radius_km=None, until=None):
     if (centre is None) != (radius_km is None) or (centre is not None and (not valid_point(centre) or not 0 < radius_km <= 100)):
         raise ValueError('Radius requires a valid centre and 0 < km <= 100')
+    if since is not None and until is not None and since > until:
+        raise ValueError('Start date must not be after end date')
     selected = []
     for record, result in records:
         if not result or result.get('excluded'):
@@ -52,9 +56,9 @@ def select(records, trade=None, area='', min_confidence=.7, granted_only=True, s
             continue
         if not trade and not any(v >= min_confidence for v in scores.values()):
             continue
-        if since:
+        if since is not None or until is not None:
             day = parse_date(record.get('decision_date', '') if granted_only else (record.get('date_received') or record.get('date_valid', '')))
-            if day is None or day < since or day > date.today():
+            if day is None or (since is not None and day < since) or day > min(until or date.today(), date.today()):
                 continue
         selected.append((record, result))
     return selected

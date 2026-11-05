@@ -90,7 +90,7 @@ Or filter by a full centre postcode and a radius in kilometres:
   --centre-postcode 'SW1A 1AA' --radius-km 2 --digest-days 28
 ```
 
-Radius filtering uses Postcodes.io and the coordinates supplied by Datahub. Records without valid coordinates are excluded. The dashboard provides the same filters and a Markdown export.
+Radius filtering uses Postcodes.io and the coordinates supplied by Datahub. Records without valid coordinates are excluded. The dashboard provides the same filters and a Markdown export. Its From/To controls default to the last 28 days, using decision dates for granted-only results and received dates (or validated dates when unavailable) for all-status results. Dates are inclusive, results are newest first, and All stored dates opts into historical records. The exported Markdown uses the selected range.
 
 A few useful options:
 

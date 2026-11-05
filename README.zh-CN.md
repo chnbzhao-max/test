@@ -90,7 +90,7 @@ review/             人工评测样本和标签
   --centre-postcode 'SW1A 1AA' --radius-km 2 --digest-days 28
 ```
 
-半径筛选使用 Postcodes.io 和 Datahub 提供的坐标。缺少有效坐标的记录不会进入半径结果。网页提供相同筛选和 Markdown 导出。
+半径筛选使用 Postcodes.io 和 Datahub 提供的坐标。缺少有效坐标的记录不会进入半径结果。网页提供相同筛选和 Markdown 导出。From/To 默认最近 28 天：仅批准结果按决定日期筛选，全部状态按收到日期筛选，缺失时使用已验证日期。范围包含起止两天，结果按日期从新到旧排列；勾选 All stored dates 可查看历史记录。Markdown 导出保留同一范围。
 
 常用参数：
 
